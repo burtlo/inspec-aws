@@ -83,7 +83,33 @@ class AwsEc2Instance < Inspec.resource(1)
   end
 
   def tags
-    @tags ||= instance.tags.map { |tag| { key: tag.key, value: tag.value } }
+    @tags ||= Tags.new(instance.tags.map { |tag| { key: tag.key, value: tag.value } })
+  end
+
+  class Tags < Array
+    def has_tag?(tag_key_value)
+      key, value = tag_key_value.first
+      find do |key_value|
+        key.to_s == key_value[:key] && value == key_value[:value]
+      end
+    end
+
+    def include?(tag_key_value)
+      if tag_key_value.keys.include?(:key) && tag_key_value.keys.include?(:value)
+        find { |key_value| key_value == tag_key_value }
+      else
+        key, value = tag_key_value.first
+        structured = { key: key.to_s, value: value }
+        find { |key_value| structured == key_value }
+      end
+    end
+  end
+
+  def has_tag?(tag_key_value)
+    key, value = tag_key_value.first
+    tags.find do |key_value|
+      key.to_s == key_value[:key] && value == key_value[:value]
+    end
   end
 
   def to_s
