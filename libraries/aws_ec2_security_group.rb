@@ -16,6 +16,34 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
     "EC2 Security Group #{@group_id}"
   end
 
+  class Rule
+    def initialize(hash)
+      @protocol = hash[:protocol]
+      @port = hash[:port]
+      @source = hash[:source]
+    end
+
+    attr_reader :protocol, :port, :source
+  end
+
+  def inbound
+    rules = @ip_permissions.map do |set|
+      Rule.new(protocol: set.ip_protocol,
+        port: set.from_port,
+        source: set.ip_ranges.first.cidr_ip)
+    end
+    OpenStruct.new(rules: rules)
+  end
+
+  def outbound
+    rules = @ip_permissions_egress.map do |set|
+      Rule.new(protocol: set.ip_protocol,
+        port: set.to_port,
+        source: set.ip_ranges.first.cidr_ip)
+    end
+    OpenStruct.new(rules: rules)
+  end
+
   private
 
   def validate_params(raw_params)
@@ -75,10 +103,13 @@ class AwsEc2SecurityGroup < Inspec.resource(1)
     end
 
     @exists = true
-    @description = dsg_response.security_groups[0].description
-    @group_id   = dsg_response.security_groups[0].group_id
-    @group_name = dsg_response.security_groups[0].group_name
-    @vpc_id     = dsg_response.security_groups[0].vpc_id
+    group = dsg_response.security_groups[0]
+    @description = group.description
+    @group_id   = group.group_id
+    @group_name = group.group_name
+    @vpc_id     = group.vpc_id
+    @ip_permissions = group.ip_permissions
+    @ip_permissions_egress = group.ip_permissions_egress
   end
 
   class Backend
